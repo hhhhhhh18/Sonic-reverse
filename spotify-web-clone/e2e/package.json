@@ -1,0 +1,15 @@
+{
+  "name": "web-player-clone-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser checks for the running app. Separate from the app's dependencies on purpose.",
+  "scripts": {
+    "test": "node e2e.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.15.0"
+  },
+  "optionalDependencies": {
+    "@sparticuz/chromium": "^153.0.0"
+  }
+}

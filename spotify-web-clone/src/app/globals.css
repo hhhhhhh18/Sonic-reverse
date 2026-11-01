@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+@theme {
+  --color-panel: #121212;
+  --color-elevated: #1f1f1f;
+  --color-raised: #2a2a2a;
+  --color-subtle: #b3b3b3;
+  --color-accent: #1ed760;
+  --color-accent-hover: #3be477;
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Roboto, Arial, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  background: #000;
+  color: #fff;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* In the base layer so utilities like `outline-none` can override it where a
+   component draws its own focus indicator (e.g. the search pill's ring). */
+@layer base {
+  :focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+}
+
+/* Main content panel. Measured on the reference: #222222 at the very top,
+   fading to the #121212 panel colour over ~200px. `local` makes the fade
+   scroll away with the content instead of staying pinned to the top. */
+.main-panel {
+  background:
+    linear-gradient(#222222, #121212 200px) 0 0 / 100% 200px no-repeat local,
+    #121212;
+}
+
+/* Thin, unobtrusive scrollbars for the scrollable panels. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #5a5a5a transparent;
+}
+
+/* Range sliders (progress / volume). --pct is set inline per input. */
+input[type="range"].slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 16px;
+  cursor: pointer;
+  --fill: #fff;
+}
+input[type="range"].slider:hover:not(:disabled) {
+  --fill: var(--color-accent);
+}
+input[type="range"].slider:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+input[type="range"].slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--fill) var(--pct, 0%), #4d4d4d var(--pct, 0%));
+}
+input[type="range"].slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #4d4d4d;
+}
+input[type="range"].slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fill);
+}
+input[type="range"].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+}
+input[type="range"].slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  opacity: 0;
+}
+input[type="range"].slider:hover::-webkit-slider-thumb,
+input[type="range"].slider:focus-visible::-webkit-slider-thumb {
+  opacity: 1;
+}
+input[type="range"].slider:hover::-moz-range-thumb,
+input[type="range"].slider:focus-visible::-moz-range-thumb {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
