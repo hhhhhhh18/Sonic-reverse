@@ -1,8 +1,10 @@
 import type { PlayableItem } from "@/data/types";
 
 /**
- * Mock playback state. No audio is produced anywhere in this app: "playing"
- * just advances `position` on a timer so the UI behaves like a player.
+ * Player state. Two kinds of items share it:
+ *  - mock items (no `videoId`): playback is simulated by `tick` actions;
+ *  - YouTube items (`videoId`): an external engine owns the clock and reports it
+ *    back through `sync` / `ended` / `engine-playing` / `item-failed`.
  */
 export interface PlayerState {
   queue: PlayableItem[];
@@ -16,6 +18,14 @@ export interface PlayerState {
   repeat: boolean;
   volume: number;
   muted: boolean;
+  /** Real duration reported by the engine; null for mock items or until known. */
+  liveDuration: number | null;
+  /** Bumped on every seek request so an engine knows to move its playhead. */
+  seekNonce: number;
+  /** Bumped whenever (re)starting the current item is requested, even if it is the same item. */
+  playNonce: number;
+  /** Whether the visible video panel is open. Playback of a YouTube item always opens it. */
+  videoPanelOpen: boolean;
 }
 
 export const initialPlayerState: PlayerState = {
@@ -28,6 +38,10 @@ export const initialPlayerState: PlayerState = {
   repeat: false,
   volume: 70,
   muted: false,
+  liveDuration: null,
+  seekNonce: 0,
+  playNonce: 0,
+  videoPanelOpen: false,
 };
 
 export type PlayerAction =
@@ -40,7 +54,14 @@ export type PlayerAction =
   | { type: "toggle-shuffle"; seed: number }
   | { type: "toggle-repeat" }
   | { type: "set-volume"; volume: number }
-  | { type: "toggle-mute" };
+  | { type: "toggle-mute" }
+  // --- reported by an external playback engine (YouTube) ---
+  | { type: "sync"; position: number; duration?: number }
+  | { type: "ended" }
+  | { type: "item-failed" }
+  | { type: "engine-playing"; playing: boolean }
+  | { type: "close-video" }
+  | { type: "open-video" };
 
 /** Small deterministic PRNG so the reducer stays pure and testable. */
 export function mulberry32(seed: number): () => number {
@@ -76,19 +97,45 @@ export function currentItem(state: PlayerState): PlayableItem | undefined {
   return state.queue[state.order[state.orderPos]];
 }
 
+/** Duration to show: the engine's real value when known, else the item's catalogued length. */
+export function effectiveDuration(state: PlayerState): number {
+  return state.liveDuration ?? currentItem(state)?.durationSec ?? 0;
+}
+
 export function hasNext(state: PlayerState): boolean {
   return state.orderPos >= 0 && (state.orderPos < state.order.length - 1 || state.repeat);
 }
 
 function goTo(state: PlayerState, orderPos: number): PlayerState {
-  return { ...state, orderPos, position: 0, isPlaying: true };
+  const item = state.queue[state.order[orderPos]];
+  return {
+    ...state,
+    orderPos,
+    position: 0,
+    isPlaying: true,
+    liveDuration: null,
+    playNonce: state.playNonce + 1,
+    videoPanelOpen: item?.videoId ? true : state.videoPanelOpen,
+  };
+}
+
+/** What happens when the current item plays to its end. */
+function afterTrackEnd(state: PlayerState): PlayerState {
+  if (state.orderPos < state.order.length - 1) return goTo(state, state.orderPos + 1);
+  if (state.repeat) return goTo(state, 0);
+  return { ...state, isPlaying: false, position: 0 };
 }
 
 export function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
   switch (action.type) {
     case "play-item": {
       if (currentItem(state)?.id === action.item.id) {
-        return { ...state, isPlaying: !state.isPlaying };
+        const isPlaying = !state.isPlaying;
+        return {
+          ...state,
+          isPlaying,
+          videoPanelOpen: action.item.videoId && isPlaying ? true : state.videoPanelOpen,
+        };
       }
       const queue = action.queue.some((q) => q.id === action.item.id)
         ? action.queue
@@ -102,10 +149,21 @@ export function playerReducer(state: PlayerState, action: PlayerAction): PlayerS
         orderPos: order.indexOf(startIndex),
         position: 0,
         isPlaying: true,
+        liveDuration: null,
+        playNonce: state.playNonce + 1,
+        videoPanelOpen: action.item.videoId ? true : state.videoPanelOpen,
       };
     }
-    case "toggle":
-      return currentItem(state) ? { ...state, isPlaying: !state.isPlaying } : state;
+    case "toggle": {
+      const item = currentItem(state);
+      if (!item) return state;
+      const isPlaying = !state.isPlaying;
+      return {
+        ...state,
+        isPlaying,
+        videoPanelOpen: item.videoId && isPlaying ? true : state.videoPanelOpen,
+      };
+    }
     case "next": {
       if (state.orderPos < 0) return state;
       if (state.orderPos < state.order.length - 1) return goTo(state, state.orderPos + 1);
@@ -114,22 +172,27 @@ export function playerReducer(state: PlayerState, action: PlayerAction): PlayerS
     case "prev": {
       if (state.orderPos < 0) return state;
       // Like most players: restart the track first, go back only near its start.
-      if (state.position > 3 || state.orderPos === 0) return { ...state, position: 0 };
+      if (state.position > 3 || state.orderPos === 0) {
+        return { ...state, position: 0, seekNonce: state.seekNonce + 1 };
+      }
       return goTo(state, state.orderPos - 1);
     }
     case "tick": {
       const item = currentItem(state);
-      if (!item || !state.isPlaying) return state;
+      // YouTube items are clocked by the engine, never by the simulated timer.
+      if (!item || !state.isPlaying || item.videoId) return state;
       const position = state.position + action.dt;
-      if (position < item.durationSec) return { ...state, position };
-      if (state.orderPos < state.order.length - 1) return goTo(state, state.orderPos + 1);
-      if (state.repeat) return goTo(state, 0);
-      return { ...state, isPlaying: false, position: 0 };
+      return position < item.durationSec ? { ...state, position } : afterTrackEnd(state);
     }
     case "seek": {
       const item = currentItem(state);
       if (!item) return state;
-      return { ...state, position: Math.min(Math.max(0, action.position), item.durationSec) };
+      const duration = state.liveDuration ?? item.durationSec;
+      return {
+        ...state,
+        position: Math.min(Math.max(0, action.position), duration),
+        seekNonce: state.seekNonce + 1,
+      };
     }
     case "toggle-shuffle": {
       const shuffle = !state.shuffle;
@@ -148,6 +211,34 @@ export function playerReducer(state: PlayerState, action: PlayerAction): PlayerS
       };
     case "toggle-mute":
       return { ...state, muted: !state.muted };
+
+    case "sync": {
+      const item = currentItem(state);
+      if (!item?.videoId) return state;
+      const position = Math.max(0, action.position);
+      const duration = action.duration && action.duration > 0 ? action.duration : state.liveDuration;
+      if (Math.abs(position - state.position) < 0.05 && duration === state.liveDuration) return state;
+      return { ...state, position, liveDuration: duration };
+    }
+    case "ended":
+      return currentItem(state) ? afterTrackEnd(state) : state;
+    case "item-failed": {
+      if (state.orderPos < 0) return state;
+      // Never wraps around on failure, so a queue of unplayable videos can't loop forever.
+      if (state.orderPos < state.order.length - 1) return goTo(state, state.orderPos + 1);
+      return { ...state, isPlaying: false, position: 0 };
+    }
+    case "engine-playing": {
+      if (!currentItem(state) || state.isPlaying === action.playing) return state;
+      return { ...state, isPlaying: action.playing };
+    }
+    case "close-video":
+      // Closing the player pauses it: a YouTube video must never keep playing while hidden.
+      return currentItem(state)?.videoId
+        ? { ...state, videoPanelOpen: false, isPlaying: false }
+        : state;
+    case "open-video":
+      return currentItem(state)?.videoId ? { ...state, videoPanelOpen: true } : state;
     default:
       return state;
   }

@@ -3,12 +3,15 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { safeDecode } from "@/lib/format";
+import { MAX_QUERY_LENGTH, MIN_QUERY_LENGTH } from "@/lib/music/limits";
 import { BrowseIcon, CloseIcon, SearchIcon } from "@/components/ui/Icons";
 import { useNotice } from "./NoticeProvider";
 
-/** How long to wait after the last keystroke before navigating (our choice; not measured). */
-const DEBOUNCE_MS = 250;
-const MAX_QUERY_LENGTH = 100;
+/**
+ * How long to wait after the last keystroke before navigating. Each distinct
+ * real search costs YouTube API quota, so this is deliberately patient.
+ */
+const DEBOUNCE_MS = 700;
 
 function parseSearchPath(pathname: string): { query: string; filter: string | null } | null {
   const match = pathname.match(/^\/search\/([^/]+)(?:\/([^/]+))?\/?$/);
@@ -65,11 +68,14 @@ export function SearchBox({ autoFocus = false }: { autoFocus?: boolean }) {
 
   const schedule = (text: string) => {
     window.clearTimeout(timer.current);
+    const length = Array.from(text.trim()).length;
+    // Too short to be worth a real search: wait for more typing. Emptying the box still goes home.
+    if (length > 0 && length < MIN_QUERY_LENGTH) return;
     timer.current = window.setTimeout(() => navigateFor(text), DEBOUNCE_MS);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    // Enter isn't required (results load as you type); it just skips the wait.
+    // Enter isn't required (results load as you type); it searches immediately, skipping the wait.
     if (event.key === "Enter") {
       window.clearTimeout(timer.current);
       navigateFor(value);

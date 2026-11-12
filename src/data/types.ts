@@ -47,6 +47,10 @@ export interface PlayableItem {
   durationSec: number;
   coverSeed: string;
   kind: "track" | "episode";
+  /** Set for real songs played through the YouTube IFrame player. Mock items leave it undefined. */
+  videoId?: string;
+  /** Real artwork (a YouTube thumbnail). Falls back to the generated cover from `coverSeed`. */
+  artworkUrl?: string;
 }
 
 export type EntityKind = "artist" | "track" | "album" | "playlist" | "show" | "episode" | "profile";

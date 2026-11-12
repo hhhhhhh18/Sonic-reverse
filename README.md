@@ -2,8 +2,8 @@
 
 A Next.js + TypeScript + Tailwind recreation of the **logged-out** interface and observable
 behavior of a popular music web player, built from browser captures (screenshot, accessibility
-tree, page URLs, network *metadata*). It uses **original mock data and generated placeholder
-artwork** and does **not** call any private API. It is not affiliated with or endorsed by Spotify.
+tree, page URLs, network *metadata*). By default it uses **original mock data and generated placeholder
+artwork**; with a YouTube API key it searches and plays real songs through the **official YouTube APIs**. It does **not** use any private API. It is not affiliated with or endorsed by Spotify.
 
 ## Run it
 
@@ -17,12 +17,12 @@ Checks:
 ```bash
 npm run typecheck    # tsc --noEmit
 npm run lint         # eslint
-npm test             # vitest: catalog integrity, search ranking, player state machine (22 tests)
+npm test             # vitest: catalog, search ranking, player state machine, YouTube parsing/client/service
 npm run build && npm start
 ```
 
 Browser end-to-end checks (35 assertions: behavior, plus measured layout numbers; real keystrokes, no Enter) live in `e2e/` with their
-own dependencies. With the app running (`npm run build && npm start`):
+own dependencies. With the app running on the demo catalog (`MUSIC_PROVIDER=mock npm run build && MUSIC_PROVIDER=mock npm start`, so no API quota is used):
 
 ```bash
 cd e2e && npm install
@@ -46,6 +46,77 @@ $env:CHROME_PATH="C:\Program Files\Google\Chrome\Application\chrome.exe"; $env:B
 | Now-playing bar: disabled preview state, then transport controls | `components/shell/NowPlayingBar.tsx` |
 | Dismissible privacy banner | `components/shell/CookieBanner.tsx` |
 | Landmarks/names: skip link, `search`, `nav "Main"`, `main`, `aside "Now playing bar"`, dialog "Privacy", combobox "What do you want to play?", slider "Resize main navigation" | `AppShell.tsx` and the files above |
+
+## Real music search and playback (YouTube)
+
+With a YouTube API key, search returns **real songs** (title, artists and album when YouTube's
+metadata states them, thumbnail, duration, video id) for Telugu, Hindi, Tamil, Malayalam and
+international music, and they play through the **official YouTube IFrame Player API** in a visible
+player panel above the bottom bar, driven by the existing bottom controls (play/pause, seek, volume,
+mute, previous/next, shuffle, repeat). Without a key, or if YouTube fails, the built-in demo catalog is
+shown with a visible banner saying why.
+
+### Setup
+
+1. In [Google Cloud Console](https://console.cloud.google.com/) create (or pick) a project.
+2. **APIs & Services → Library →** enable **YouTube Data API v3**.
+3. **APIs & Services → Credentials → Create credentials → API key.** Then edit the key:
+   **API restrictions → Restrict key → YouTube Data API v3.** If your server has a fixed IP, add an
+   **IP address** application restriction too (on serverless hosts egress IPs change, so rely on the
+   API restriction and your quota).
+4. Copy `.env.example` to `.env.local` and set `YOUTUBE_API_KEY=` to your key. `.env.local` is
+   git-ignored; never commit it and never put a real key in `.env.example`.
+5. Restart `npm run dev` (Next.js reads `.env.local` at startup).
+
+No OAuth is needed for public search. The IFrame Player API needs no key.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `YOUTUBE_API_KEY` | none | **Required.** Server-side only (no `NEXT_PUBLIC_` prefix). |
+| `YOUTUBE_REGION_CODE` | `IN` | Region bias for results. |
+| `MUSIC_CACHE_TTL_SECONDS` | `21600` | Identical searches are served from memory for this long, at no quota cost. |
+| `MUSIC_RATE_LIMIT_PER_MIN` | `20` | Uncached searches per client per minute. |
+| `MUSIC_DAILY_SEARCH_BUDGET` | `90` | Uncached searches per Pacific day before the app stops calling YouTube. |
+| `MUSIC_PROVIDER` | `youtube` | `mock` forces the demo catalog (used by the bundled e2e tests). |
+
+### How it behaves
+
+- **Search as you type:** a search starts 700 ms after you stop typing and needs at least 3
+  characters; pressing **Enter** searches immediately.
+- **Quota:** a YouTube search is expensive. Google's current docs describe a default of roughly
+  **100 searches per day** per project, so results are cached, rate-limited and capped by
+  `MUSIC_DAILY_SEARCH_BUDGET`. Check your project's **Quotas** page for the real numbers; more quota
+  needs Google's audit/quota-extension form.
+- **Artists and albums** are *parsed* from video titles and descriptions: YouTube has no such fields.
+  Auto-generated "Topic" uploads are exact; film-song uploads (`Song | Movie | credits`) are
+  usually right; otherwise a field is left empty rather than guessed (the byline then shows the
+  uploading channel). The Artists and Albums sections are derived from the same results.
+- **The player stays visible** while a YouTube song is playing (YouTube requires the embedded player to be
+  shown, at least 200×200; this one is 400×225). Closing it pauses playback; press play, or the
+  "Show Now Playing view" button, to bring it back. Videos that can't be embedded are filtered out
+  or skipped with a notice. YouTube may show ads inside the player.
+- **Key safety:** the key is read only in server code (`src/lib/music/*`, `src/app/api/music/*`) and sent
+  in an `x-goog-api-key` header, never in a URL; error messages never include it.
+
+API: `GET /api/music/search?q=<query>[&pageToken=<token>]` returns normalized results (or
+`{ "error": { "code", "message" } }` with 400/429/502/503).
+
+### Testing without spending quota
+
+- `npm test` covers the parser, client, service (validation, cache, rate limit, budget, error mapping)
+  and the player state machine with mocked network.
+- `MUSIC_PROVIDER=mock npm run build && MUSIC_PROVIDER=mock npm start`, then run `e2e/e2e.mjs`.
+- `e2e/youtube-flow.mjs` starts a **fake YouTube API** and a **fake IFrame player** and checks the whole
+  search → play → pause → seek → volume → track-end flow plus that the key never reaches the browser
+  (needs `npm run build` first; see the header of that file).
+
+### Troubleshooting
+
+- *"YOUTUBE_API_KEY isn't set"*: the key is missing or still the placeholder; restart the dev server.
+- *"The YouTube API key was rejected…"*: enable **YouTube Data API v3** for the key's project, and make
+  sure its API restriction includes it. If a proxy strips the `x-goog-api-key` header, set
+  `YOUTUBE_KEY_TRANSPORT=query` as a last resort.
+- *"quota has been reached"*: wait for midnight Pacific time, or request more quota.
 
 ## Visual fidelity: what was measured, and what wasn't
 
@@ -71,8 +142,10 @@ Segoe UI. The original site's proprietary typeface is not used.
 
 ## Honest limitations
 
-- **Mock playback only.** "Playing" advances a timer; **no audio is produced**. Volume/mute change
-  state only. Shuffle, repeat, previous/next and seeking work on the mock queue.
+- **Demo tracks are silent.** Items from the built-in demo catalog advance a timer and produce no
+  audio. Real songs from YouTube search play through the YouTube player; volume and mute apply to it.
+  Real search finds songs only: the Playlists, Podcasts & Shows and Profiles filters stay empty,
+  and there is no "load more" yet.
 - **Account features are not implemented**: Sign up, Log in, Create playlist, Liked Songs, More
   options, Browse, Install App, Premium/Support/Download menus, language, footer links. They show a
   "isn't implemented in this demo" notice instead of pretending to work.
@@ -87,7 +160,9 @@ Segoe UI. The original site's proprietary typeface is not used.
 - **Intentional differences from the capture:** the sidebar heading is an `h2` (the reference had a
   second `h1`); below 768 px the sidebar becomes a drawer and search collapses to an icon (the
   reference just overflowed at 640 px).
-- Search results are fictional, so queries match invented names (try "hello", "harbor", "lantern").
+- Without a YouTube API key (or if YouTube fails) search falls back to fictional demo results, so
+  queries match invented names (try "hello", "harbor", "lantern"), and a banner says so.
+- No Content-Security-Policy is set yet; a correct one for Next.js needs nonces plus YouTube's hosts.
 - Verified in headless Chromium only; Firefox and Safari were not tested.
 
 ## Notes on the Next.js setup

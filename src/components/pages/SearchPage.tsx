@@ -197,13 +197,23 @@ function FilterView({ filter, results }: { filter: Exclude<SearchFilterId, "all"
 }
 
 /** Search page for /search/<query> and /search/<query>/<filter>. */
-export function SearchPage({ query, filter }: { query: string; filter: SearchFilterId }) {
+export function SearchPage({
+  query,
+  filter,
+  notice,
+}: {
+  query: string;
+  filter: SearchFilterId;
+  /** Optional banner under the filters, e.g. why demo results are showing. */
+  notice?: ReactNode;
+}) {
   const results = searchCatalog(query);
   const label = `Search for ${results.query} | ${APP_NAME}`;
 
   return (
     <PageMain label={label} heading={`Search results for ${results.query}`}>
       <FilterChips query={results.query} active={filter} />
+      {notice}
       {results.total === 0 ? (
         <EmptyState query={results.query} />
       ) : filter === "all" ? (

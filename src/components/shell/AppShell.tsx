@@ -8,6 +8,7 @@ import { NowPlayingBar } from "./NowPlayingBar";
 import { PlayerProvider } from "./PlayerProvider";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
+import { YouTubePlayerPanel } from "./YouTubePlayerPanel";
 
 const SIDEBAR_MIN = 280;
 const SIDEBAR_MAX = 420;
@@ -124,6 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <NoticeProvider>
       <PlayerProvider>
         <Frame>{children}</Frame>
+        <YouTubePlayerPanel />
         <CookieBanner />
       </PlayerProvider>
     </NoticeProvider>

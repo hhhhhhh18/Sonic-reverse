@@ -16,10 +16,13 @@ function hash(seed: string): number {
  */
 export function Cover({
   seed,
+  src,
   round = false,
   className,
 }: {
   seed: string;
+  /** Real artwork (e.g. a YouTube thumbnail). The generated cover stays underneath as a fallback. */
+  src?: string | null;
   round?: boolean;
   className?: string;
 }) {
@@ -69,6 +72,18 @@ export function Cover({
           </g>
         )}
       </svg>
+      {src ? (
+        // Plain <img>: remote thumbnails, so the Next image optimizer isn't needed.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 size-full object-cover"
+        />
+      ) : null}
     </div>
   );
 }

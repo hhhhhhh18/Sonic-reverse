@@ -94,6 +94,7 @@ await page.click('input[role="combobox"]');
 await page.keyboard.type("hello", { delay: 60 });
 const arrived = await waitPath("/search/hello");
 check("search: typing 'hello' navigates to /search/hello (no Enter)", arrived, "path=" + (await currentPath()));
+await page.waitForSelector('main section[aria-label="Songs"]'); // results replace the loading skeleton
 check("search: no document reload (JS marker survived)", (await page.evaluate(() => window.__noReloadMarker)) === 42);
 check("search: input keeps the typed value", (await inputValue()) === "hello");
 const sr = await page.evaluate(() => ({
@@ -116,6 +117,7 @@ await page.screenshot({ path: `${SHOTS}/search-hello-1280x720.png` });
 // ---------- Filter navigation (client-side) ----------
 await page.click('nav[aria-label="Search filters"] a[href="/search/hello/tracks"]');
 check("filter: clicking Songs goes to /search/hello/tracks client-side", (await waitPath("/search/hello/tracks")) && (await page.evaluate(() => window.__noReloadMarker)) === 42);
+await page.waitForSelector('nav[aria-label="Search filters"] a[aria-current="page"]');
 check("filter: Songs is the current chip and input still says 'hello'", (await page.$eval('nav[aria-label="Search filters"] a[aria-current="page"]', (a) => a.textContent)) === "Songs" && (await inputValue()) === "hello");
 
 // typing more while on a filter keeps the filter (our design choice)
@@ -137,6 +139,7 @@ check("clear: Clear search field empties the input and returns Home", (await wai
 // ---------- Playback (mock) ----------
 await page.type('input[role="combobox"]', "hello", { delay: 40 });
 await waitPath("/search/hello");
+await page.waitForSelector('main section[aria-label="Songs"] li button[aria-label^="Play "]');
 await page.click('main li button[aria-label^="Play "]');
 await sleep(300);
 const np1 = await page.evaluate(() => {

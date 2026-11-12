@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/cn";
 import { formatDuration } from "@/lib/format";
-import { hasNext } from "@/lib/player-reducer";
+import { effectiveDuration, hasNext } from "@/lib/player-reducer";
 import { Cover } from "@/components/ui/Cover";
 import {
   ExpandIcon,
@@ -64,7 +64,7 @@ export function NowPlayingBar() {
   const { state, current } = player;
 
   const hasTrack = current !== undefined;
-  const duration = current?.durationSec ?? 0;
+  const duration = effectiveDuration(state);
   const progressPct = duration > 0 ? (state.position / duration) * 100 : 0;
   const volumeShown = state.muted ? 0 : state.volume;
 
@@ -77,7 +77,7 @@ export function NowPlayingBar() {
       <div className="flex min-w-0 items-center gap-3">
         {current ? (
           <>
-            <Cover seed={current.coverSeed} className="size-14 shrink-0" />
+            <Cover seed={current.coverSeed} src={current.artworkUrl} className="size-14 shrink-0" />
             <div className="min-w-0">
               <p className="truncate text-sm font-bold">{current.title}</p>
               <p className="truncate text-xs text-subtle">{current.byline}</p>
@@ -94,7 +94,7 @@ export function NowPlayingBar() {
           <div className="min-w-0">
             <p className="truncate text-sm font-bold">Preview mode</p>
             <p className="line-clamp-2 text-xs text-subtle">
-              Play any song to try the mock player. No audio is produced.
+              Search for a song to play it, or try a silent demo track.
             </p>
           </div>
         )}
@@ -162,7 +162,7 @@ export function NowPlayingBar() {
           <>
             <IconButton
               label="Show Now Playing view"
-              onClick={() => notImplemented("The Now Playing view")}
+              onClick={() => (current?.videoId ? player.openVideo() : notImplemented("The Now Playing view"))}
             >
               <ExpandIcon />
             </IconButton>

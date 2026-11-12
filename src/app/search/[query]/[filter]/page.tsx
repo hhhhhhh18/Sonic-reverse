@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { SearchPage } from "@/components/pages/SearchPage";
+import { SearchRoute } from "@/components/pages/SearchRoute";
 import { safeDecode } from "@/lib/format";
 import { filterFromSegment } from "@/lib/search";
 
@@ -15,5 +15,5 @@ export default async function SearchFiltered({ params }: Props) {
   const { query, filter: segment } = await params;
   const filter = filterFromSegment(segment);
   if (!filter || filter === "all") notFound(); // "all" has no URL segment
-  return <SearchPage query={safeDecode(query)} filter={filter} />;
+  return <SearchRoute query={safeDecode(query)} filter={filter} />;
 }

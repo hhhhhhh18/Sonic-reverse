@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SearchPage } from "@/components/pages/SearchPage";
+import { SearchRoute } from "@/components/pages/SearchRoute";
 import { safeDecode } from "@/lib/format";
 
 type Props = { params: Promise<{ query: string }> };
@@ -11,5 +11,5 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SearchAll({ params }: Props) {
   const { query } = await params;
-  return <SearchPage query={safeDecode(query)} filter="all" />;
+  return <SearchRoute query={safeDecode(query)} filter="all" />;
 }

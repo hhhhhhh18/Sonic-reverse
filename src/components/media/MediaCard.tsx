@@ -14,6 +14,8 @@ interface MediaCardProps {
   /** Second line (artist links, "By owner", year, ...). */
   subtitle: ReactNode;
   coverSeed: string;
+  /** Real artwork; falls back to the generated cover from `coverSeed`. */
+  artworkSrc?: string | null;
   /** Circular artwork (artists, profiles). */
   round?: boolean;
   /** What the play button plays. Omit for non-playable cards (profiles). */
@@ -30,6 +32,7 @@ export function MediaCard({
   title,
   subtitle,
   coverSeed,
+  artworkSrc,
   round = false,
   queue,
   playLabel,
@@ -41,7 +44,7 @@ export function MediaCard({
   return (
     <article className="group relative min-w-0 rounded-lg p-3 transition-colors hover:bg-white/10 focus-within:bg-white/10">
       <div className="relative">
-        <Cover seed={coverSeed} round={round} className="aspect-square w-full shadow-lg" />
+        <Cover seed={coverSeed} src={artworkSrc} round={round} className="aspect-square w-full shadow-lg" />
         {playable && (
           <PlayButton
             label={playLabel ?? title}

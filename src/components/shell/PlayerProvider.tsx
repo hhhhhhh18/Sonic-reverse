@@ -30,6 +30,13 @@ interface PlayerApi {
   toggleRepeat: () => void;
   setVolume: (volume: number) => void;
   toggleMute: () => void;
+  // --- called by the YouTube engine (YouTubePlayerPanel) ---
+  syncFromEngine: (position: number, duration?: number) => void;
+  engineEnded: () => void;
+  engineFailed: () => void;
+  setPlayingFromEngine: (playing: boolean) => void;
+  closeVideo: () => void;
+  openVideo: () => void;
 }
 
 const PlayerContext = createContext<PlayerApi | null>(null);
@@ -39,11 +46,12 @@ const seed = () => Math.floor(Math.random() * 2 ** 32);
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(playerReducer, initialPlayerState);
 
-  // Advance the simulated playhead while playing. Real elapsed time is used
-  // so background-tab timer throttling doesn't make the track run slow.
-  const isPlaying = state.isPlaying;
+  // Advance the simulated playhead for demo (non-YouTube) items. Real elapsed
+  // time is used so background-tab timer throttling doesn't make the track run slow.
+  // YouTube items are clocked by the engine instead, so no timer runs for them.
+  const simulated = state.isPlaying && !currentItem(state)?.videoId;
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!simulated) return;
     let last = performance.now();
     const id = window.setInterval(() => {
       const now = performance.now();
@@ -51,7 +59,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       last = now;
     }, 250);
     return () => window.clearInterval(id);
-  }, [isPlaying]);
+  }, [simulated]);
 
   const playItem = useCallback((item: PlayableItem, queue?: PlayableItem[]) => {
     dispatch({ type: "play-item", item, queue: queue ?? [item], seed: seed() });
@@ -70,6 +78,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       toggleRepeat: () => dispatch({ type: "toggle-repeat" }),
       setVolume: (volume) => dispatch({ type: "set-volume", volume }),
       toggleMute: () => dispatch({ type: "toggle-mute" }),
+      syncFromEngine: (position, duration) => dispatch({ type: "sync", position, duration }),
+      engineEnded: () => dispatch({ type: "ended" }),
+      engineFailed: () => dispatch({ type: "item-failed" }),
+      setPlayingFromEngine: (playing) => dispatch({ type: "engine-playing", playing }),
+      closeVideo: () => dispatch({ type: "close-video" }),
+      openVideo: () => dispatch({ type: "open-video" }),
     }),
     [state, playItem],
   );

@@ -13,6 +13,7 @@ export function TopResultCard({
   kindLabel,
   byline,
   coverSeed,
+  artworkSrc,
   round,
   queue,
   detailFeature,
@@ -22,6 +23,7 @@ export function TopResultCard({
   kindLabel: string;
   byline?: string;
   coverSeed: string;
+  artworkSrc?: string | null;
   round?: boolean;
   queue: PlayableItem[];
   detailFeature: string;
@@ -29,7 +31,7 @@ export function TopResultCard({
   const playback = useQueuePlayback(queue);
   return (
     <div className="group relative rounded-lg bg-white/5 p-5 transition-colors hover:bg-white/10 focus-within:bg-white/10">
-      <Cover seed={coverSeed} round={round} className="size-24 shadow-lg" />
+      <Cover seed={coverSeed} src={artworkSrc} round={round} className="size-24 shadow-lg" />
       <StubLink
         href={href}
         feature={detailFeature}
