@@ -2,6 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { AuthListener } from "@/components/auth/AuthListener";
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import type { AuthState } from "@/lib/auth/types";
 import { CookieBanner } from "./CookieBanner";
 import { NoticeProvider } from "./NoticeProvider";
 import { NowPlayingBar } from "./NowPlayingBar";
@@ -120,14 +123,17 @@ function Frame({ children }: { children: ReactNode }) {
   );
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, auth }: { children: ReactNode; auth: AuthState }) {
   return (
-    <NoticeProvider>
-      <PlayerProvider>
-        <Frame>{children}</Frame>
-        <YouTubePlayerPanel />
-        <CookieBanner />
-      </PlayerProvider>
-    </NoticeProvider>
+    <AuthProvider value={auth}>
+      <NoticeProvider>
+        <PlayerProvider>
+          <Frame>{children}</Frame>
+          <YouTubePlayerPanel />
+          <CookieBanner />
+          <AuthListener />
+        </PlayerProvider>
+      </NoticeProvider>
+    </AuthProvider>
   );
 }

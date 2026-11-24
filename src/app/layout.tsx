@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/shell/AppShell";
+import { getAuthState } from "@/lib/supabase/user";
 import { APP_NAME } from "@/lib/brand";
 
 export const metadata: Metadata = {
@@ -14,11 +15,12 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const auth = await getAuthState();
   return (
     <html lang="en" className="h-full antialiased">
       <body className="h-full overflow-hidden">
-        <AppShell>{children}</AppShell>
+        <AppShell auth={auth}>{children}</AppShell>
       </body>
     </html>
   );

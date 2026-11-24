@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { AuthActions } from "@/components/auth/AuthActions";
 import { BrandMark } from "@/components/ui/BrandMark";
 import { DownloadIcon, HomeIcon, LibraryIcon, SearchIcon } from "@/components/ui/Icons";
 import { StubLink } from "@/components/ui/StubLink";
@@ -81,20 +82,7 @@ export function TopBar({ onOpenLibrary }: { onOpenLibrary: () => void }) {
         >
           <DownloadIcon className="text-lg" /> Install App
         </StubLink>
-        <button
-          type="button"
-          onClick={() => notImplemented("Sign up")}
-          className="hidden rounded-full px-3 py-2 text-subtle hover:scale-105 hover:text-white sm:block"
-        >
-          Sign up
-        </button>
-        <button
-          type="button"
-          onClick={() => notImplemented("Log in")}
-          className="rounded-full bg-white px-5 py-2.5 text-black hover:scale-105"
-        >
-          Log in
-        </button>
+        <AuthActions />
       </nav>
     </header>
   );

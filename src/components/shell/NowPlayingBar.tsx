@@ -2,6 +2,8 @@
 
 import { cn } from "@/lib/cn";
 import { formatDuration } from "@/lib/format";
+import Link from "next/link";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { effectiveDuration, hasNext } from "@/lib/player-reducer";
 import { Cover } from "@/components/ui/Cover";
 import {
@@ -60,6 +62,7 @@ function IconButton({
  */
 export function NowPlayingBar() {
   const player = usePlayer();
+  const auth = useAuth();
   const { notImplemented } = useNotice();
   const { state, current } = player;
 
@@ -181,6 +184,13 @@ export function NowPlayingBar() {
               onChange={(event) => player.setVolume(Number(event.target.value))}
             />
           </>
+        ) : auth.user ? null : auth.enabled ? (
+          <Link
+            href="/register"
+            className="rounded-full bg-white px-4 py-2 text-sm font-bold text-black hover:scale-105"
+          >
+            Sign up free
+          </Link>
         ) : (
           <button
             type="button"
